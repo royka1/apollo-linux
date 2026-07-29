@@ -58,6 +58,11 @@ dtbs-list
 modules.order
 
 #
+# pmbootstrap envkernel build output
+#
+/.output/
+
+#
 # Top-level generic files
 #
 /linux
