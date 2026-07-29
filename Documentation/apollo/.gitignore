@@ -1,0 +1,3 @@
+# The top-level .gitignore excludes *.patch, since patches are normally
+# generated output. Here they are documentation and must be tracked.
+!*.patch

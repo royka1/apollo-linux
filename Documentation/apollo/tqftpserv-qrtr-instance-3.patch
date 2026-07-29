@@ -1,0 +1,17 @@
+--- /home/roy/linux/claude/tqftpserv-src/tqftpserv.c	2026-07-27 16:05:12.229543795 +0200
++++ /home/roy/linux/claude/tqftpserv.c	2026-07-27 16:04:36.840142318 +0200
+@@ -974,13 +974,7 @@
+ 		exit(1);
+ 	}
+ 
+-	/*
+-	 * The external SDX55 on Apollo looks up service 4096 *instance 3*
+-	 * (see its own F3 log: "name = [sid = 4096, iid = 3]"), not the
+-	 * instance 1 an on-die MPSS uses. qrtr_publish() packs the instance
+-	 * field as version | (instance << 8), so pass 3 as the version.
+-	 */
+-	ret = qrtr_publish(fd, 4096, 3, 0);
++	ret = qrtr_publish(fd, 4096, 1, 0);
+ 	if (ret < 0) {
+ 		fprintf(stderr, "failed to publish service registry service\n");
+ 		exit(1);
