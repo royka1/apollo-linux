@@ -1,0 +1,11 @@
+# built on the device, never committed
+diag_efs_write
+diag_reader
+dms_nas_probe
+efs_mhi_write
+ipa_qmi_proxy
+mdm_helper_native
+pm_proxy_native
+pm_service_native
+sysmon_probe_native
+xiaomi_efs_probe
