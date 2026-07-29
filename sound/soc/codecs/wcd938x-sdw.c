@@ -93,7 +93,9 @@ int wcd938x_swr_get_current_bank(struct sdw_slave *sdev)
 {
 	int bank;
 
-	bank  = sdw_read(sdev, SDW_SCP_CTRL);
+	dev_info(&sdev->dev, "%s: dev_num=%d\n", __func__, sdev->dev_num);
+	bank = sdw_read(sdev, SDW_SCP_CTRL);
+	dev_info(&sdev->dev, "%s: SDW_SCP_CTRL=0x%x\n", __func__, bank);
 
 	return ((bank & 0x40) ? 1 : 0);
 }
@@ -162,6 +164,9 @@ static int wcd9380_update_status(struct sdw_slave *slave,
 				 enum sdw_slave_status status)
 {
 	struct wcd938x_sdw_priv *wcd = dev_get_drvdata(&slave->dev);
+
+	dev_info(&slave->dev, "%s: status=%d is_tx=%d dev_num=%d\n",
+		 __func__, status, wcd->is_tx, slave->dev_num);
 
 	if (wcd->regmap && (status == SDW_SLAVE_ATTACHED)) {
 		/* Write out any cached changes that happened between probe and attach */
