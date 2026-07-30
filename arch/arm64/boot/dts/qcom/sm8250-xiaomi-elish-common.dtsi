@@ -92,14 +92,6 @@
 			gpio-key,wakeup;
 		};
 
-		switch-tablet-mode {
-			label = "Swtich Tablet Mode";
-			gpios = <&tlmm 121 GPIO_ACTIVE_LOW>;
-			linux,input-type = <EV_SW>;
-			debounce-interval = <15>;
-			linux,code = <SW_TABLET_MODE>;
-			gpio-key,wakeup;
-		};
 	};
 
 	qca6390-pmu {
@@ -1046,15 +1038,6 @@
 	};
 };
 
-&lpass_tlmm {
-	keyboard_en_state: keyboard-default-state {
-		pins = "gpio9";
-		function = "i2s1_data";
-		drive-strength = <8>;
-		bias-pull-up;
-	};
-};
-
 &mdss {
 	status = "okay";
 };
@@ -1568,7 +1551,7 @@
 	vdda18-supply = <&vreg_l12a_1p8>;
 	vdda33-supply = <&vreg_l2a_3p1>;
 	status = "okay";
-	pinctrl-0 = <&keyboard_en_state>, <&keyboard_vdd_pin>;
+	pinctrl-0 = <&keyboard_vdd_pin>;
 	pinctrl-names = "default";
 };
 
