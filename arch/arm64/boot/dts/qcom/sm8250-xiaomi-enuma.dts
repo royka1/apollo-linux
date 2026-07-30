@@ -10,6 +10,9 @@
 / {
 	model = "Xiaomi Mi Pad 5 Pro 5G";
 	compatible = "xiaomi,enuma", "xiaomi,elish", "qcom,sm8250";
+
+	/* Platform type differs from elish; msm-id is inherited unchanged. */
+	qcom,board-id = <0x2e 0>;
 };
 
 &display_panel {
