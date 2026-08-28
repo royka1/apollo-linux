@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/seq_file.h>
 #include <linux/delay.h>
 
@@ -39,23 +40,55 @@ struct lpi_pinctrl {
 	const struct lpi_pinctrl_variant_data *data;
 };
 
+/* The LPI TLMM registers live behind the macro/dcodec (LPASS core) clocks,
+ * so a register access must resume the device; autosuspend then lets the
+ * clocks - and with them the whole LPASS deep-sleep vote - drop when no pin
+ * is being touched, instead of pinning them from probe forever.
+ */
+static int lpi_gpio_pm_get(struct lpi_pinctrl *state)
+{
+	return pm_runtime_resume_and_get(state->dev);
+}
+
+static void lpi_gpio_pm_put(struct lpi_pinctrl *state)
+{
+	pm_runtime_mark_last_busy(state->dev);
+	pm_runtime_put_autosuspend(state->dev);
+}
+
 static int lpi_gpio_read(struct lpi_pinctrl *state, unsigned int pin,
 			 unsigned int addr)
 {
 	u32 pin_offset;
+
+	int val, ret;
+
+	ret = lpi_gpio_pm_get(state);
+	if (ret < 0)
+		return ret;
 
 	if (state->data->flags & LPI_FLAG_USE_PREDEFINED_PIN_OFFSET)
 		pin_offset = state->data->groups[pin].pin_offset;
 	else
 		pin_offset = LPI_TLMM_REG_OFFSET * pin;
 
-	return ioread32(state->tlmm_base + pin_offset + addr);
+	val = ioread32(state->tlmm_base + pin_offset + addr);
+	lpi_gpio_pm_put(state);
+
+	return val;
 }
+
 
 static int lpi_gpio_write(struct lpi_pinctrl *state, unsigned int pin,
 			  unsigned int addr, unsigned int val)
 {
 	u32 pin_offset;
+
+	int ret;
+
+	ret = lpi_gpio_pm_get(state);
+	if (ret < 0)
+		return ret;
 
 	if (state->data->flags & LPI_FLAG_USE_PREDEFINED_PIN_OFFSET)
 		pin_offset = state->data->groups[pin].pin_offset;
@@ -63,6 +96,7 @@ static int lpi_gpio_write(struct lpi_pinctrl *state, unsigned int pin,
 		pin_offset = LPI_TLMM_REG_OFFSET * pin;
 
 	iowrite32(val, state->tlmm_base + pin_offset + addr);
+	lpi_gpio_pm_put(state);
 
 	return 0;
 }
@@ -543,6 +577,18 @@ int lpi_pinctrl_probe(struct platform_device *pdev)
 		goto err_pinctrl;
 	}
 
+	/*
+	 * The clocks are on (enabled above for probe register access); hand
+	 * them to runtime PM. set_active makes that manual enable the initial
+	 * resumed reference, which the first autosuspend then drops.
+	 */
+	pm_runtime_set_autosuspend_delay(dev, 100);
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_idle(dev);
+
 	return 0;
 
 err_pinctrl:
@@ -553,11 +599,36 @@ err_pinctrl:
 }
 EXPORT_SYMBOL_GPL(lpi_pinctrl_probe);
 
+static int __maybe_unused lpi_pinctrl_runtime_suspend(struct device *dev)
+{
+	struct lpi_pinctrl *pctrl = dev_get_drvdata(dev);
+
+	clk_bulk_disable_unprepare(MAX_LPI_NUM_CLKS, pctrl->clks);
+	return 0;
+}
+
+static int __maybe_unused lpi_pinctrl_runtime_resume(struct device *dev)
+{
+	struct lpi_pinctrl *pctrl = dev_get_drvdata(dev);
+
+	return clk_bulk_prepare_enable(MAX_LPI_NUM_CLKS, pctrl->clks);
+}
+
+const struct dev_pm_ops lpi_pinctrl_pm_ops = {
+	SET_RUNTIME_PM_OPS(lpi_pinctrl_runtime_suspend,
+			   lpi_pinctrl_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				pm_runtime_force_resume)
+};
+EXPORT_SYMBOL_GPL(lpi_pinctrl_pm_ops);
+
 void lpi_pinctrl_remove(struct platform_device *pdev)
 {
 	struct lpi_pinctrl *pctrl = platform_get_drvdata(pdev);
 	int i;
 
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	mutex_destroy(&pctrl->lock);
 	clk_bulk_disable_unprepare(MAX_LPI_NUM_CLKS, pctrl->clks);
 
